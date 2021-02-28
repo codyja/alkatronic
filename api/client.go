@@ -135,6 +135,7 @@ func (c *AlkatronicClient) Authenticate(username, password string) {
 
 	return
 }
+
 // GetDevices calls the /devices endpoint and returns the user's own devices
 func (c *AlkatronicClient) GetDevices() (*Devices, error) {
 	p, _ := url.Parse("/users/devices")
