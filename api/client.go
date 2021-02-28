@@ -61,18 +61,22 @@ func (c *AlkatronicClient) SetAccessToken(token string) {
 }
 
 // Do executes an HTTP request with the Client's HTTP client.
-// Do automatically adds the Access Token to the request
+// Do automatically adds the Token as a cookie to each request
 func (c *AlkatronicClient) Do(req *http.Request) (*http.Response, error) {
 	if c.accessToken != "" {
-		req.Header.Set("token", c.accessToken)
 		req.Header.Set("User-Agent", "Alkatronic_GO_API/1.0")
+
+		cookie := http.Cookie{Name: "token", Value: c.accessToken}
+		req.AddCookie(&cookie)
 	}
+
+	fmt.Println("Printing request after..........")
+	fmt.Println(req.Header)
 
 	return c.c.Do(req)
 }
 
-// DoRequest executes an HTTP request
-//func (c *AlkatronicClient) DoWithExpectedStatus(req *http.Request, status int) (*Response, error) {
+// DoRequest executes an HTTP request and decodes the response
 func (c *AlkatronicClient) DoRequest(req *http.Request) (*http.Response, error) {
 	resp, err := c.Do(req)
 	if err != nil {
@@ -131,7 +135,7 @@ func (c *AlkatronicClient) Authenticate(username, password string) {
 
 	return
 }
-
+// GetDevices calls the /devices endpoint and returns the user's own devices
 func (c *AlkatronicClient) GetDevices() (*Devices, error) {
 	p, _ := url.Parse("/users/devices")
 
@@ -159,6 +163,7 @@ func (c *AlkatronicClient) GetDevices() (*Devices, error) {
 	return d, err
 }
 
+// GetRecords calls the /records endpoint for the specified device and days
 func (c *AlkatronicClient) GetRecords(deviceID int, days int) (*Records, error) {
 	p, _ := url.Parse(fmt.Sprintf("/users/devices/%d/records/%d", deviceID, days))
 
@@ -167,9 +172,6 @@ func (c *AlkatronicClient) GetRecords(deviceID int, days int) (*Records, error) 
 		fmt.Println("must be an errors at req")
 		return nil, err
 	}
-
-	cookie := http.Cookie{Name: "token", Value: c.accessToken}
-	req.AddCookie(&cookie)
 
 	resp, err := c.DoRequest(req)
 	if err != nil {
@@ -185,6 +187,7 @@ func (c *AlkatronicClient) GetRecords(deviceID int, days int) (*Records, error) 
 	return r, err
 }
 
+// GetLastResult calls the GetRecords func, iterates over the dates and returns the most recent Record
 func (c *AlkatronicClient) GetLastResult(deviceID int) (Record, error) {
 	records, err := c.GetRecords(deviceID, 7)
 
