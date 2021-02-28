@@ -13,9 +13,12 @@ import (
 	"sync"
 )
 
+const (
+	apiUrl = "https://alkatronic.focustronic.com"
+)
+
 // Client is the API client for making calls to alkatronic's api
 type Client interface {
-	BaseURL() *url.URL
 	AccessToken() string
 	Authenticate(username, password string) error
 }
@@ -29,8 +32,8 @@ type AlkatronicClient struct {
 }
 
 // NewAlkatronicClient returns a new Client
-func NewAlkatronicClient(baseURL string) (*AlkatronicClient, error) {
-	parsedURL, err := url.Parse(baseURL)
+func NewAlkatronicClient() (*AlkatronicClient, error) {
+	parsedURL, err := url.Parse(apiUrl)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse baseURL: %w", err)
 	}
@@ -69,9 +72,6 @@ func (c *AlkatronicClient) Do(req *http.Request) (*http.Response, error) {
 		cookie := http.Cookie{Name: "token", Value: c.accessToken}
 		req.AddCookie(&cookie)
 	}
-
-	fmt.Println("Printing request after..........")
-	fmt.Println(req.Header)
 
 	return c.c.Do(req)
 }
@@ -120,7 +120,7 @@ func (c *AlkatronicClient) Authenticate(username, password string) {
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	log.Printf("Starting authentication against Alkatronic's API using username and password")
+	log.Printf("Starting authentication against Alkatronic's API")
 	resp, err := c.DoRequest(req)
 	if err != nil {
 		log.Fatalf("Authentication failed: %s", err)
@@ -187,8 +187,8 @@ func (c *AlkatronicClient) GetRecords(deviceID int, days int) (*Records, error) 
 	return r, err
 }
 
-// GetLastResult calls the GetRecords func, iterates over the dates and returns the most recent Record
-func (c *AlkatronicClient) GetLastResult(deviceID int) (Record, error) {
+// GetLatestResult calls the GetRecords func, iterates over the dates and returns the most recent Record
+func (c *AlkatronicClient) GetLatestResult(deviceID int) (Record, error) {
 	records, err := c.GetRecords(deviceID, 7)
 
 	var dates []int64
