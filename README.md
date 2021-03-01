@@ -73,4 +73,3 @@ $ go run main.go
 2021/02/28 15:32:34 Authentication has succeeded
 Latest test result: Device Name: Alkatronic, Record ID: 0000001, KH_Value: 7.72, Create Time: 28 Feb 21 15:08 -0600
 ```
-
