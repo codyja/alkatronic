@@ -215,6 +215,6 @@ func (c *AlkatronicClient) GetLatestResult(deviceID int) (Record, error) {
 }
 
 // ConvertKh takes in the reported KH value and converts to dKh
-func ConvertKh(kh int) float32 {
-	return float32(kh) / 100.0
+func ConvertKh(kh int) float64 {
+	return float64(kh) / 100.0
 }
