@@ -18,8 +18,8 @@ type Devices struct {
 		NextTestTime                           int         `json:"next_test_time"`
 		UserID                                 int         `json:"user_id"`
 		FriendlyName                           string      `json:"friendly_name"`
-		UpperKh                                int         `json:"upper_kh"`
-		LowerKh                                int         `json:"lower_kh"`
+		UpperKh                                float64         `json:"upper_kh"`
+		LowerKh                                float64         `json:"lower_kh"`
 		MeasureInterval                        int         `json:"measure_interval"`
 		AquariumVolume                         int         `json:"aquarium_volume"`
 		ReagentAlert                           int         `json:"reagent_alert"`
@@ -90,7 +90,7 @@ type Records struct {
 type Record struct {
 	RecordID            int         `json:"record_id"`
 	DeviceID            int         `json:"device_id"`
-	KhValue             int         `json:"kh_value"`
+	KhValue             float64     `json:"kh_value"`
 	PhValue             int         `json:"ph_value"`
 	SolutionAdded       int         `json:"solution_added"`
 	AcidUsed            int         `json:"acid_used"`
@@ -99,9 +99,9 @@ type Record struct {
 	RemainingReagent    int         `json:"remaining_reagent"`
 	RemainingDoseBuffer int         `json:"remaining_dose_buffer"`
 	TestCount           int         `json:"test_count"`
-	IsHidden            int         `json:"is_hidden"`
+	IsHidden            bool        `json:"is_hidden"`
 	Note                interface{} `json:"note"`
-	IsDeleted           int         `json:"is_deleted"`
+	IsDeleted           bool        `json:"is_deleted"`
 	LocalHour           interface{} `json:"local_hour"`
 	LocalMinute         interface{} `json:"local_minute"`
 	RecordTime          int         `json:"record_time"`

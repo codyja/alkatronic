@@ -18,10 +18,10 @@ const (
 )
 
 // Client is the API client for making calls to alkatronic's api
-type Client interface {
-	AccessToken() string
-	Authenticate(username, password string) error
-}
+//type Client interface {
+//	AccessToken() string
+//	Authenticate(username, password string) error
+//}
 
 // AlkatronicClient is the client implementation that calls Alkatronic
 type AlkatronicClient struct {
@@ -215,6 +215,6 @@ func (c *AlkatronicClient) GetLatestResult(deviceID int) (Record, error) {
 }
 
 // ConvertKh takes in the reported KH value and converts to dKh
-func ConvertKh(kh int) float64 {
-	return float64(kh) / 100.0
+func ConvertKh(kh float64) float64 {
+	return kh / 100.0
 }
