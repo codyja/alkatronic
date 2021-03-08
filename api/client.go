@@ -191,6 +191,9 @@ func (c *AlkatronicClient) GetRecords(deviceID int, days int) (*Records, error) 
 // GetLatestResult calls the GetRecords func, iterates over the dates and returns the most recent Record
 func (c *AlkatronicClient) GetLatestResult(deviceID int) (Record, error) {
 	records, err := c.GetRecords(deviceID, 7)
+	if err != nil {
+		log.Fatalf("error retrieving latest record: %s", err)
+	}
 
 	var dates []int64
 	for _, v := range records.Data {
