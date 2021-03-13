@@ -18,10 +18,10 @@ const (
 )
 
 // Client is the API client for making calls to alkatronic's api
-type Client interface {
-	AccessToken() string
-	Authenticate(username, password string) error
-}
+//type Client interface {
+//	AccessToken() string
+//	Authenticate(username, password string) error
+//}
 
 // AlkatronicClient is the client implementation that calls Alkatronic
 type AlkatronicClient struct {
@@ -191,6 +191,9 @@ func (c *AlkatronicClient) GetRecords(deviceID int, days int) (*Records, error) 
 // GetLatestResult calls the GetRecords func, iterates over the dates and returns the most recent Record
 func (c *AlkatronicClient) GetLatestResult(deviceID int) (Record, error) {
 	records, err := c.GetRecords(deviceID, 7)
+	if err != nil {
+		log.Fatalf("error retrieving latest record: %s", err)
+	}
 
 	var dates []int64
 	for _, v := range records.Data {
@@ -215,6 +218,6 @@ func (c *AlkatronicClient) GetLatestResult(deviceID int) (Record, error) {
 }
 
 // ConvertKh takes in the reported KH value and converts to dKh
-func ConvertKh(kh int) float64 {
-	return float64(kh) / 100.0
+func ConvertKh(kh float64) float64 {
+	return kh / 100.0
 }
