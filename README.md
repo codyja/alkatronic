@@ -1,49 +1,50 @@
-<img src="https://alkatronic.focustronic.com/images/alkatronic_logo.png" width="300" alt="Alkatronic">
+<img src="http://www.focustronic.net/skin/frontend/wow/default/images/logo.gif" width="150" alt="Alkatronic">
 
 ## Purpose
-This project contains an GO api client to connect to the Focustronic Alkatronic api. 
-You can authenticate with your own credentials and retrieve the test results for your devices. 
-Then you can use the data for other use cases such as monitoring, graphing, and alerting.
+This third party project contains a GO api client to connect to the Focustronic API. 
+You can authenticate with your own credentials and retrieve the test results for your devices. You can retrieve data
+for the Alkatronic, Mastertronic, and Dosetronic. Then you can use the data for other use cases such as monitoring, 
+graphing, data analysis, and alerting. If using this project, please be respectful of the Focustronic API, thank you!
 
 ## Examples
 
 1. Set credentials in your shell:
 ```
-export ALKATRONIC_USERNAME='user here'
-export ALKATRONIC_PASSWORD='password here'
+export FOCUSTRONIC_USERNAME='user here'
+export FOCUSTRONIC_PASSWORD='password here'
 ```
-2. Create sample application. For permenant usage, consider writing the token locally (eg. ~/.alkatronic) and reusing
+2. Create sample application. For permanent usage, consider writing the token locally (eg. ~/.focustronic) and reusing
 during future requests.
 ```go
 package main
 
 import (
 	"fmt"
-	"github.com/codyja/alkatronic/api"
+	"github.com/codyja/focustronic/api"
 	"log"
 	"os"
 	"time"
 )
 
 func main() {
-	username, ok := os.LookupEnv("ALKATRONIC_USERNAME")
+	username, ok := os.LookupEnv("FOCUSTRONIC_USERNAME")
 	if !ok {
-		log.Fatalf("ALKATRONIC_USERNAME not set")
+		log.Fatalf("FOCUSTRONIC_USERNAME not set")
 	}
-	password, ok := os.LookupEnv("ALKATRONIC_PASSWORD")
+	password, ok := os.LookupEnv("FOCUSTRONIC_PASSWORD")
 	if !ok {
-		log.Fatalf("ALKATRONIC_PASSWORD not set")
+		log.Fatalf("FOCUSTRONIC_PASSWORD not set")
 	}
 
-	// Initialize new Alkatronic Client
-	c, err := api.NewAlkatronicClient()
+	// Initialize new Focustronic Client
+	c, err := api.NewFocustronicClient()
 	if err != nil {
-		fmt.Errorf("error initializing new Alkatronic Client")
+		fmt.Errorf("error initializing new Focustronic Client")
 	}
 
 	c.Authenticate(username, password)
 
-	// Get all alkatronic devices under account
+	// Get all Focustronic devices under account
 	d, err := c.GetDevices()
 	if err != nil {
 		log.Fatalf("Error getting devices: %s", err)
