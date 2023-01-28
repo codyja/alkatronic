@@ -265,8 +265,8 @@ func (c *FocustronicClient) Authenticate(username string, password string) {
 //}
 
 //// GetLatestResult calls the GetRecords func, iterates over the dates and returns the most recent Record
-//func (c *FocustronicClient) GetLatestResult(deviceID int) (Record, error) {
-//	records, err := c.GetRecords(deviceID, 7)
+//func (c *FocustronicClient) GetLatestResult(deviceType string, deviceID int) (Record, error) {
+//	records, err := c.GetRecords(deviceType, deviceID, "7")
 //	if err != nil {
 //		log.Fatalf("error retrieving latest record: %s", err)
 //	}

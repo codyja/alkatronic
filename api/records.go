@@ -3,14 +3,15 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
+	"sort"
+	"strconv"
 )
 
 // GetRecords calls the /records endpoint for the specified device and days
-func (c *FocustronicClient) GetRecords(deviceType string, deviceID int, days string) (*Records, error) {
-	p, _ := url.Parse(fmt.Sprintf("/api/v2/devices/%s/%d/data/test-records", deviceType, deviceID))
+func (c *FocustronicClient) GetAlkatronicRecords(deviceID int, days string) (*AlkatronicRecords, error) {
+	p, _ := url.Parse(fmt.Sprintf("/api/v2/devices/alkatronic/%d/data/test-records", deviceID))
 
 	req, err := http.NewRequest(http.MethodGet, c.baseURL.ResolveReference(p).String(), nil)
 	if err != nil {
@@ -23,7 +24,7 @@ func (c *FocustronicClient) GetRecords(deviceType string, deviceID int, days str
 	q.Add("day", days)
 	req.URL.RawQuery = q.Encode()
 
-	log.Printf("Pulling data from: %v", req.URL)
+	//log.Printf("Pulling data from: %v", req.URL)
 	//fmt.Println(req.URL)
 
 	resp, err := c.DoRequest(req)
@@ -31,7 +32,7 @@ func (c *FocustronicClient) GetRecords(deviceType string, deviceID int, days str
 		return nil, fmt.Errorf("error making http call: %w", err)
 	}
 
-	var r *Records
+	var r *AlkatronicRecords
 	err = json.NewDecoder(resp.Body).Decode(&r)
 	if err != nil {
 		return nil, fmt.Errorf("GetRecords error decoding response: %w", err)
@@ -40,12 +41,82 @@ func (c *FocustronicClient) GetRecords(deviceType string, deviceID int, days str
 	for k, v := range r.Data {
 		r.Data[k].KhValue = ConvertValue(v.KhValue)
 		r.Data[k].SolutionAdded = ConvertValue(v.SolutionAdded)
-		if v.Parameter == "no3" ||  v.Parameter == "po4" || v.Parameter == "dkh" {
+		// if v.Parameter == "no3" || v.Parameter == "po4" || v.Parameter == "dkh" {
+		// 	r.Data[k].Value = ConvertValue(v.Value)
+		// }
+	}
+
+	return r, err
+}
+
+// Will provide all test results unless a specific parameter is provided
+func (c *FocustronicClient) GetMastertronicRecords(days, deviceID int, parameter string) (*MastertronicRecords, error) {
+	p, _ := url.Parse(fmt.Sprintf("/api/v2/devices/mastertronic/%d/data/test-records", deviceID))
+
+	req, err := http.NewRequest(http.MethodGet, c.baseURL.ResolveReference(p).String(), nil)
+	if err != nil {
+		fmt.Println("must be an errors at req")
+		return nil, err
+	}
+
+	// Add token to query string
+	q := req.URL.Query()
+	q.Add("day", strconv.Itoa(days))
+	q.Add("token", c.accessToken)
+	if parameter != "" {
+		q.Add("parameter", parameter)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := c.DoRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making http call: %w", err)
+	}
+
+	var r *MastertronicRecords
+	err = json.NewDecoder(resp.Body).Decode(&r)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding response: %w", err)
+	}
+
+	for k, v := range r.Data {
+		if v.Parameter == "no3" || v.Parameter == "po4" || v.Parameter == "dkh" {
 			r.Data[k].Value = ConvertValue(v.Value)
 		}
 	}
 
 	return r, err
+}
+
+func (c *FocustronicClient) GetLatestMastertronicRecord(deviceID int, parameter string) (*MastertronicRecord, error) {
+	records, err := c.GetMastertronicRecords(7, deviceID, parameter)
+	if err != nil {
+		return nil, fmt.Errorf("error getting records: %w", err)
+	}
+
+	if len(records.Data) == 0 {
+		return nil, fmt.Errorf("no records found in last 7 days")
+	}
+
+	sort.Slice(records.Data, func(i, j int) bool {
+		return records.Data[i].RecordTime > records.Data[j].RecordTime
+	})
+
+	return &records.Data[0], nil
+
+}
+
+func (c *FocustronicClient) GetLatestMastertronicRecordId(records *MastertronicRecords) (int, error) {
+	if len(records.Data) == 0 {
+		return 0, fmt.Errorf("no records found")
+	}
+
+	sort.Slice(records.Data, func(i, j int) bool {
+		return records.Data[i].RecordTime > records.Data[j].RecordTime
+	})
+
+	return records.Data[0].ID, nil
+
 }
 
 func (c *FocustronicClient) GetDosetronicRecords(deviceID int, days string) (*DosetronicRecords, error) {
@@ -63,7 +134,7 @@ func (c *FocustronicClient) GetDosetronicRecords(deviceID int, days string) (*Do
 	q.Add("token", c.accessToken)
 	req.URL.RawQuery = q.Encode()
 
-	log.Printf("Pulling data from: %v", req.URL)
+	//log.Printf("Pulling data from: %v", req.URL)
 
 	resp, err := c.DoRequest(req)
 	if err != nil {
@@ -76,45 +147,69 @@ func (c *FocustronicClient) GetDosetronicRecords(deviceID int, days string) (*Do
 		return nil, fmt.Errorf("GetRecords error decoding response: %w", err)
 	}
 
-	//for k, v := range r.Data {
-	//	r.Data[k].KhValue = ConvertValue(v.KhValue)
-	//	r.Data[k].SolutionAdded = ConvertValue(v.SolutionAdded)
-	//	if v.Parameter == "no3" ||  v.Parameter == "po4" || v.Parameter == "dkh" {
-	//		r.Data[k].Value = ConvertValue(v.Value)
-	//	}
-	//}
+	for k, v := range r.Data {
+		for k1, v1 := range v {
+			r.Data[k][k1].DoseVolume = ConvertValue(v1.DoseVolume)
+		}
+	}
 
 	return r, err
 }
 
-//// GetLatestResult calls the GetRecords func, iterates over the dates and returns the most recent Record
-//func (c *FocustronicClient) GetLatestResult(deviceType string, deviceID int) (Record, error) {
-//	records, err := c.GetRecords(deviceType, deviceID, "7")
-//	if err != nil {
-//		log.Fatalf("error retrieving latest record: %s", err)
-//	}
-//
-//	var dates []int64
-//	for _, v := range records.Data {
-//		dates = append(dates, v.CreateTime)
-//	}
-//
-//	var latest int64 = 0
-//	for _, v := range dates {
-//		if latest < v {
-//			latest = v
-//		}
-//	}
-//
-//	r := Record{}
-//	for _, record := range records.Data {
-//		if record.CreateTime == latest {
-//			r = record
-//		}
-//	}
-//
-//	return r, err
-//}
+func (c *FocustronicClient) GetDosetronicLatestRecords(deviceID int) (map[int]DosetronicRecord, error) {
+	records, err := c.GetDosetronicRecords(deviceID, "7")
+	if err != nil {
+		return nil, fmt.Errorf("error getting records: %w", err)
+	}
+
+	latestRecords := make(map[int]DosetronicRecord)
+
+	for _, record := range records.Data {
+		for _, pumpRecord := range record {
+			// Check if the pump_id already exists in the map
+			if currentRecord, ok := latestRecords[pumpRecord.PumpID]; ok {
+				// If it does, check if the record_time for the current record is greater than the record_time for the existing record
+				if pumpRecord.RecordTime > currentRecord.RecordTime {
+					// If it is, update the map with the new record
+					latestRecords[pumpRecord.PumpID] = pumpRecord
+				}
+			} else {
+				// If the pump_id does not exist in the map, add it
+				latestRecords[pumpRecord.PumpID] = pumpRecord
+			}
+		}
+
+	}
+
+	return latestRecords, nil
+}
+
+func (c *FocustronicClient) GetAlkatronicLatestResult(deviceID int) (*AlkatronicRecord, error) {
+	records, err := c.GetAlkatronicRecords(deviceID, "7")
+	if err != nil {
+		return nil, err
+	}
+
+	if len(records.Data) == 0 {
+		return nil, fmt.Errorf("no records found")
+	}
+
+	sort.Slice(records.Data, func(i, j int) bool {
+		return records.Data[i].CreateTime > records.Data[j].CreateTime
+	})
+
+	// return &records.Data[0], nil
+	latest := &AlkatronicRecord{
+		// RecordID:   records.Data[0].RecordID,
+		// DeviceID:   records.Data[0].DeviceID,
+		KhValue:    records.Data[0].KhValue,
+		RecordTime: records.Data[0].RecordTime,
+		CreateTime: records.Data[0].CreateTime,
+	}
+
+	return latest, nil
+
+}
 
 // ConvertValue takes in the reported KH value and converts to dKh
 func ConvertValue(v float64) float64 {

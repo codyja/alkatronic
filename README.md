@@ -13,6 +13,11 @@ graphing, data analysis, and alerting. If using this project, please be respectf
 export FOCUSTRONIC_USERNAME='user here'
 export FOCUSTRONIC_PASSWORD='password here'
 ```
+or for Windows:
+```
+$env:FOCUSTRONIC_USERNAME = 'user here'
+$env:FOCUSTRONIC_PASSWORD = 'password here'
+```
 2. Create sample application. For permanent usage, consider writing the token locally (eg. ~/.focustronic) and reusing
 during future requests.
 ```go
