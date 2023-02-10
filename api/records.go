@@ -10,7 +10,7 @@ import (
 )
 
 // GetRecords calls the /records endpoint for the specified device and days
-func (c *FocustronicClient) GetAlkatronicRecords(deviceID int, days string) (*AlkatronicRecords, error) {
+func (c *FocustronicClient) GetAlkatronicRecords(deviceID int, days int) (*AlkatronicRecords, error) {
 	p, _ := url.Parse(fmt.Sprintf("/api/v2/devices/alkatronic/%d/data/test-records", deviceID))
 
 	req, err := http.NewRequest(http.MethodGet, c.baseURL.ResolveReference(p).String(), nil)
@@ -21,7 +21,7 @@ func (c *FocustronicClient) GetAlkatronicRecords(deviceID int, days string) (*Al
 
 	// Add token to query string
 	q := req.URL.Query()
-	q.Add("day", days)
+	q.Add("day", strconv.Itoa(days))
 	req.URL.RawQuery = q.Encode()
 
 	//log.Printf("Pulling data from: %v", req.URL)
@@ -47,6 +47,38 @@ func (c *FocustronicClient) GetAlkatronicRecords(deviceID int, days string) (*Al
 	}
 
 	return r, err
+}
+
+func (c *FocustronicClient) GetAlkatronicLatestResult(deviceID int) (*AlkatronicRecord, error) {
+	records, err := c.GetAlkatronicRecords(deviceID, 7)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(records.Data) == 0 {
+		return nil, fmt.Errorf("no records found")
+	}
+
+	sort.Slice(records.Data, func(i, j int) bool {
+		return records.Data[i].CreateTime > records.Data[j].CreateTime
+	})
+
+	// return &records.Data[0], nil
+	latest := &AlkatronicRecord{
+		// RecordID:   records.Data[0].RecordID,
+		// DeviceID:   records.Data[0].DeviceID,
+		KhValue:    records.Data[0].KhValue,
+		RecordTime: records.Data[0].RecordTime,
+		CreateTime: records.Data[0].CreateTime,
+	}
+
+	return latest, nil
+
+}
+
+// ConvertValue takes in the reported KH value and converts to dKh
+func ConvertValue(v float64) float64 {
+	return v / 100.0
 }
 
 // Will provide all test results unless a specific parameter is provided
@@ -119,7 +151,7 @@ func (c *FocustronicClient) GetLatestMastertronicRecordId(records *MastertronicR
 
 }
 
-func (c *FocustronicClient) GetDosetronicRecords(deviceID int, days string) (*DosetronicRecords, error) {
+func (c *FocustronicClient) GetDosetronicRecords(deviceID, days int) (*DosetronicRecords, error) {
 	p, _ := url.Parse(fmt.Sprintf("/api/v2/devices/dosetronic/%d/data/dose-records", deviceID))
 
 	req, err := http.NewRequest(http.MethodGet, c.baseURL.ResolveReference(p).String(), nil)
@@ -130,7 +162,7 @@ func (c *FocustronicClient) GetDosetronicRecords(deviceID int, days string) (*Do
 
 	// Add day and token to query string
 	q := req.URL.Query()
-	q.Add("day", days)
+	q.Add("day", strconv.Itoa(days))
 	q.Add("token", c.accessToken)
 	req.URL.RawQuery = q.Encode()
 
@@ -157,7 +189,7 @@ func (c *FocustronicClient) GetDosetronicRecords(deviceID int, days string) (*Do
 }
 
 func (c *FocustronicClient) GetDosetronicLatestRecords(deviceID int) (map[int]DosetronicRecord, error) {
-	records, err := c.GetDosetronicRecords(deviceID, "7")
+	records, err := c.GetDosetronicRecords(deviceID, 7)
 	if err != nil {
 		return nil, fmt.Errorf("error getting records: %w", err)
 	}
@@ -182,36 +214,4 @@ func (c *FocustronicClient) GetDosetronicLatestRecords(deviceID int) (map[int]Do
 	}
 
 	return latestRecords, nil
-}
-
-func (c *FocustronicClient) GetAlkatronicLatestResult(deviceID int) (*AlkatronicRecord, error) {
-	records, err := c.GetAlkatronicRecords(deviceID, "7")
-	if err != nil {
-		return nil, err
-	}
-
-	if len(records.Data) == 0 {
-		return nil, fmt.Errorf("no records found")
-	}
-
-	sort.Slice(records.Data, func(i, j int) bool {
-		return records.Data[i].CreateTime > records.Data[j].CreateTime
-	})
-
-	// return &records.Data[0], nil
-	latest := &AlkatronicRecord{
-		// RecordID:   records.Data[0].RecordID,
-		// DeviceID:   records.Data[0].DeviceID,
-		KhValue:    records.Data[0].KhValue,
-		RecordTime: records.Data[0].RecordTime,
-		CreateTime: records.Data[0].CreateTime,
-	}
-
-	return latest, nil
-
-}
-
-// ConvertValue takes in the reported KH value and converts to dKh
-func ConvertValue(v float64) float64 {
-	return v / 100.0
 }
