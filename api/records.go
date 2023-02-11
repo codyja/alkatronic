@@ -41,9 +41,6 @@ func (c *FocustronicClient) GetAlkatronicRecords(deviceID int, days int) (*Alkat
 	for k, v := range r.Data {
 		r.Data[k].KhValue = ConvertValue(v.KhValue)
 		r.Data[k].SolutionAdded = ConvertValue(v.SolutionAdded)
-		// if v.Parameter == "no3" || v.Parameter == "po4" || v.Parameter == "dkh" {
-		// 	r.Data[k].Value = ConvertValue(v.Value)
-		// }
 	}
 
 	return r, err
