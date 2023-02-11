@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 )
@@ -17,29 +18,23 @@ const (
 	apiUrl = "https://alkatronic.focustronic.com"
 )
 
-// Client is the API client for making calls to alkatronic's api
-//type Client interface {
-//	AccessToken() string
-//	Authenticate(username, password string) error
-//}
-
-// AlkatronicClient is the client implementation that calls Alkatronic
-type AlkatronicClient struct {
+// FocustronicClient is the client implementation that calls Focustronic
+type FocustronicClient struct {
 	c           *http.Client
 	baseURL     *url.URL
 	accessToken string
 	m           sync.Mutex
 }
 
-// NewAlkatronicClient returns a new Client
-func NewAlkatronicClient() (*AlkatronicClient, error) {
+// NewFocustronicClient returns a new Client
+func NewFocustronicClient() (*FocustronicClient, error) {
 	parsedURL, err := url.Parse(apiUrl)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to parse baseURL: %w", err)
 	}
 
 	h := &http.Client{}
-	c := &AlkatronicClient{
+	c := &FocustronicClient{
 		c:       h,
 		baseURL: parsedURL,
 	}
@@ -48,26 +43,26 @@ func NewAlkatronicClient() (*AlkatronicClient, error) {
 }
 
 // BaseURL returns the Client's configured API URL
-func (c *AlkatronicClient) BaseURL() *url.URL {
+func (c *FocustronicClient) BaseURL() *url.URL {
 	u, _ := url.Parse(c.baseURL.String())
 	return u
 }
 
 // AccessToken returns the API Access Token stored in the Client
-func (c *AlkatronicClient) AccessToken() string {
+func (c *FocustronicClient) AccessToken() string {
 	return c.accessToken
 }
 
 // SetAccessToken sets c.accessToken to use an existing token read from home directory
-func (c *AlkatronicClient) SetAccessToken(token string) {
+func (c *FocustronicClient) SetAccessToken(token string) {
 	c.accessToken = token
 }
 
 // Do executes an HTTP request with the Client's HTTP client.
 // Do automatically adds the Token as a cookie to each request
-func (c *AlkatronicClient) Do(req *http.Request) (*http.Response, error) {
+func (c *FocustronicClient) Do(req *http.Request) (*http.Response, error) {
 	if c.accessToken != "" {
-		req.Header.Set("User-Agent", "Alkatronic_GO_API/1.0")
+		req.Header.Set("User-Agent", "Focustronic_GO_API/1.0")
 
 		cookie := http.Cookie{Name: "token", Value: c.accessToken}
 		req.AddCookie(&cookie)
@@ -77,7 +72,7 @@ func (c *AlkatronicClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 // DoRequest executes an HTTP request and decodes the response
-func (c *AlkatronicClient) DoRequest(req *http.Request) (*http.Response, error) {
+func (c *FocustronicClient) DoRequest(req *http.Request) (*http.Response, error) {
 	resp, err := c.Do(req)
 	if err != nil {
 		return nil, err
@@ -104,10 +99,10 @@ func (c *AlkatronicClient) DoRequest(req *http.Request) (*http.Response, error) 
 	return resp, nil
 }
 
-// Authenticate uses the provided username and password to auth against the Alkatronic site API
+// Login uses the provided username and password to auth against the Focustronic site API
 // and retrieves a single token. The token is stored internal to the Client. The username/password
 // are encoded and sent as form data.
-func (c *AlkatronicClient) Authenticate(username, password string) {
+func (c *FocustronicClient) Login(username, password string) {
 	p, _ := url.Parse("/users/login")
 	b := url.Values{
 		"email":    {username},
@@ -120,7 +115,7 @@ func (c *AlkatronicClient) Authenticate(username, password string) {
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	log.Printf("Starting authentication against Alkatronic's API")
+	log.Printf("Starting authentication against Focustronic's API")
 	resp, err := c.DoRequest(req)
 	if err != nil {
 		log.Fatalf("Authentication failed: %s", err)
@@ -136,88 +131,38 @@ func (c *AlkatronicClient) Authenticate(username, password string) {
 	return
 }
 
-// GetDevices calls the /devices endpoint and returns the user's own devices
-func (c *AlkatronicClient) GetDevices() (*Devices, error) {
-	p, _ := url.Parse("/users/devices")
-
-	req, err := http.NewRequest(http.MethodGet, c.baseURL.ResolveReference(p).String(), nil)
+// Authenticate performs initial authentication or reauthentication as needed
+func (c *FocustronicClient) Authenticate(username string, password string) {
+	// Read in home directory to read and write token file to
+	home, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Println("must be an errors at req")
-		return nil, err
+		log.Fatalf("Error getting home directory: %s", err)
 	}
-	// Add token to query string to get devices
-	q := req.URL.Query()
-	q.Add("token", c.accessToken)
-	req.URL.RawQuery = q.Encode()
 
-	resp, err := c.DoRequest(req)
+	// Location to store token inside file
+	tokenFileLocation := fmt.Sprintf("%s/.focustronic", home)
+
+	// Read existing token from token storage file
+	existingToken, err := ioutil.ReadFile(tokenFileLocation)
 	if err != nil {
-		return nil, fmt.Errorf("error making http call: %w", err)
+		log.Printf("Checking for existing token file: %s", err)
 	}
 
-	var d *Devices
-	err = json.NewDecoder(resp.Body).Decode(&d)
-	if err != nil {
-		return nil, fmt.Errorf("GetDevices error decoding response: %w", err)
-	}
+	// Authenticate if there's no existing token file, otherwise call SetAccessToken to reuse existing token on subsequent calls
+	if string(existingToken) == "" {
+		log.Printf("No existing token file found, logging into Focustronic API.")
+		c.Login(username, password)
 
-	return d, err
-}
-
-// GetRecords calls the /records endpoint for the specified device and days
-func (c *AlkatronicClient) GetRecords(deviceID int, days int) (*Records, error) {
-	p, _ := url.Parse(fmt.Sprintf("/users/devices/%d/records/%d", deviceID, days))
-
-	req, err := http.NewRequest(http.MethodGet, c.baseURL.ResolveReference(p).String(), nil)
-	if err != nil {
-		fmt.Println("must be an errors at req")
-		return nil, err
-	}
-
-	resp, err := c.DoRequest(req)
-	if err != nil {
-		return nil, fmt.Errorf("error making http call: %w", err)
-	}
-
-	var r *Records
-	err = json.NewDecoder(resp.Body).Decode(&r)
-	if err != nil {
-		return nil, fmt.Errorf("GetRecords error decoding response: %w", err)
-	}
-
-	return r, err
-}
-
-// GetLatestResult calls the GetRecords func, iterates over the dates and returns the most recent Record
-func (c *AlkatronicClient) GetLatestResult(deviceID int) (Record, error) {
-	records, err := c.GetRecords(deviceID, 7)
-	if err != nil {
-		log.Fatalf("error retrieving latest record: %s", err)
-	}
-
-	var dates []int64
-	for _, v := range records.Data {
-		dates = append(dates, v.CreateTime)
-	}
-
-	var latest int64 = 0
-	for _, v := range dates {
-		if latest < v {
-			latest = v
+		// write token locally
+		tokenBytes := []byte(fmt.Sprintf("%s",c.AccessToken()))
+		err = ioutil.WriteFile(tokenFileLocation, tokenBytes, 0600)
+		if err != nil {
+			log.Fatalf("Error writting token file: %s", err)
 		}
+		log.Printf("Saved access token to following location for reuse: %s", tokenFileLocation)
+	} else {
+		log.Printf("Using existing access token read from %s", tokenFileLocation)
+		c.SetAccessToken(string(existingToken))
 	}
 
-	r := Record{}
-	for _, record := range records.Data {
-		if record.CreateTime == latest {
-			r = record
-		}
-	}
-
-	return r, err
-}
-
-// ConvertKh takes in the reported KH value and converts to dKh
-func ConvertKh(kh float64) float64 {
-	return kh / 100.0
 }
