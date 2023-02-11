@@ -1,5 +1,3 @@
-<img src="http://www.focustronic.net/skin/frontend/wow/default/images/logo.gif" width="150" alt="Alkatronic">
-
 ## Purpose
 This third party project contains a GO api client to connect to the Focustronic API. 
 You can authenticate with your own credentials and retrieve the test results for your devices. You can retrieve data
@@ -25,10 +23,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/codyja/focustronic/api"
 	"log"
 	"os"
 	"time"
+
+	"github.com/codyja/focustronic/api"
 )
 
 func main() {
@@ -56,26 +55,73 @@ func main() {
 	}
 
 	// Loop over devices and then GetLatestResult
-	for _, v := range d.Data {
-		// Get the last test result
-		l, err := c.GetLatestResult(v.DeviceID)
-		if err != nil {
-			log.Fatalf("Error getting last test result: %s", err)
+	for _, data := range d.Data {
+		if data.Type == "alkatronic" {
+			for _, device := range data.Devices {
+				fmt.Printf("Device found: Name: %s, DeviceID: %d\n", device.FriendlyName, device.Id)
+				record, err := c.GetAlkatronicLatestResult(device.Id)
+				if err != nil {
+					fmt.Errorf("Error getting alkatronic results: %s", err)
+				}
+				fmt.Printf("  Latest Alkalinity Record: %v, Time: %v\n", record.KhValue, time.Unix(record.CreateTime, 0))
+			}
 		}
-		
-		fmt.Printf(
-			"Latest test result: Device Name: %s, Record ID: %d, KH_Value: %.2f, Create Time: %s\n",
-			v.FriendlyName,
-			l.RecordID,
-			api.ConvertKh(l.KhValue),
-			time.Unix(l.CreateTime, 0).Format(time.RFC822Z))
+		if data.Type == "dosetronic" {
+			for _, device := range data.Devices {
+				fmt.Printf("Device found: Name: %s, DeviceID: %d\n", device.FriendlyName, device.Id)
+
+				records, err := c.GetDosetronicLatestRecords(device.Id)
+				if err != nil {
+					fmt.Errorf("Error getting dosetronic results: %s", err)
+				}
+
+				for pumpId, record := range records {
+					fmt.Printf("  Latest Dosetronic Doseage: PumpID:%d, Volume: %v, Time: %v\n", pumpId, record.DoseVolume, time.Unix(record.RecordTime, 0))
+				}
+
+			}
+		}
+		if data.Type == "mastertronic" {
+			for _, device := range data.Devices {
+				fmt.Printf("Device found: Name: %s, DeviceID: %d\n", device.FriendlyName, device.Id)
+				d, err := c.GetMastertronicDeviceDetails(device.Id)
+				if err != nil {
+					log.Println(fmt.Errorf("Error getting mastertronic results: %s", err))
+				}
+
+				for _, p := range d.Data.Parameters {
+					record, err := c.GetLatestMastertronicRecord(device.Id, p.Parameter)
+					if err != nil {
+						fmt.Println(fmt.Errorf("  Error getting mastertronic results for parameter '%s': %s", p.Parameter, err))
+						continue
+					}
+					fmt.Printf("  Latest Mastertronic Record: %s, Latest Value: %v, Time: %v\n", record.Parameter, record.Value, time.Unix(record.RecordTime, 0))
+				}
+			}
+		}
 	}
 }
 ```   
 3. Run app:
 ```
 $ go run main.go
-2021/02/28 15:32:34 Starting authentication against Alkatronic's API
-2021/02/28 15:32:34 Authentication has succeeded
-Latest test result: Device Name: Alkatronic, Record ID: 0000001, KH_Value: 7.72, Create Time: 28 Feb 21 15:08 -0600
+Device found: Name: Alkatronic, DeviceID: 001
+  Latest Alkalinity Record: 6.53, Time: 2023-02-10 16:09:39 -0600 CST
+Device found: Name: Dosetronic, DeviceID: 001
+  Latest Dosetronic Doseage: PumpID:1, Volume: 3.9, Time: 2023-02-10 18:05:47 -0600 CST
+  Latest Dosetronic Doseage: PumpID:2, Volume: 9.74, Time: 2023-02-10 18:11:00 -0600 CST
+  Latest Dosetronic Doseage: PumpID:3, Volume: 1.49, Time: 2023-02-10 18:15:41 -0600 CST
+  Latest Dosetronic Doseage: PumpID:4, Volume: 2.5, Time: 2023-02-10 15:20:41 -0600 CST
+  Latest Dosetronic Doseage: PumpID:5, Volume: 2, Time: 2023-02-10 14:25:52 -0600 CST
+Device found: Name: Mastertronic, DeviceID: 001
+  Error getting mastertronic results for parameter 'no2': no records found in last 7 days
+  Error getting mastertronic results for parameter 'no3': no records found in last 7 days
+  Latest Mastertronic Record: po4, Latest Value: 0.24, Time: 2023-02-08 04:28:06 -0600 CST
+  Error getting mastertronic results for parameter 'ca': no records found in last 7 days
+  Latest Mastertronic Record: mg, Latest Value: 1496, Time: 2023-02-08 09:21:59 -0600 CST
+  Latest Mastertronic Record: oli, Latest Value: 0, Time: 2023-02-09 03:03:56 -0600 CST
+  Error getting mastertronic results for parameter 'dkh': no records found in last 7 days
+  Error getting mastertronic results for parameter 'i': no records found in last 7 days
+  Error getting mastertronic results for parameter 'fe': no records found in last 7 days
+  Error getting mastertronic results for parameter 'nh4': no records found in last 7 days
 ```
